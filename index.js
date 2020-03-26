@@ -1,4 +1,9 @@
-const express = require('express'); // require express 
+// joi is used for error handling on POST requests to the API
+// joi returns a class, hence capitallized
+const Joi = require('joi');
+
+// Express is the lightweight web framework that will host our API
+const express = require('express');
 
 // create our express application
 const app = express();
@@ -72,7 +77,7 @@ with an option message, otherwise we'll send the cat obj
 
 app.get('/api/cats/:id', (req, res) => {
     const cat = cats.find(c => c.id === parseInt(req.params.id));
-    if (!cat) res.status(404).send(
+    if (!cat) return res.status(404).send(
         `The cat at ID ${req.params.id} was not found`
     );
     res.send(cat);
@@ -96,20 +101,94 @@ app.get('/api/comments', (req, res) => {
     res.send(req.query); 
 });
 
-
 /*
 In order to create a new cat we'll need to use the 
-app.post() method. 
+app.post() method. It is typically best practice to send
+back the new object in the response.
+*/
+
+/*
+The first if statement adds error handling that checks 
+that a name was given in the body and that it meets our
+requirements.
+*/
+
+/*
+The second block is how we can do error handling using
+the joi NPM package. Here we've called a function that
+will check a schema against the request's body. If errors
+exits, error will be true (exists), and we can send back
+a 400 status and the error to the user.
+
+Note that we've derefferenced the error from the return
+of the function as that is all we'll need to know if we
+should proceed.
 */
 
 app.post('/api/cats', (req, res) => {
+    // if (!req.body.name || req.body.name.length<3) {
+    //     res.status(400).send("Name is required with a minimum of three characters");
+    //     return;
+    // }
+
+    const { error } = validateCat(req.body);
+
+    // first detail's message will have our error in it
+    if (error) return res.status(400).send(
+        error.details[0].message
+    );
+
     const cat = {
         id: cats.length + 1,
-        name: req.body.name, // to enable we have to have the 
+        name: req.body.name, 
     };
     cats.push(cats);
     res.send(cat);
 });
+
+app.put('/api/cats/:id', (req, res) => {
+    // Look up the course
+    // if not exist, return 404
+    const cat = cats.find(c => c.id === parseInt(req.params.id));
+    if (!cat) res.status(404).send(
+        `The cat at ID ${req.params.id} was not found`
+    );
+
+    // Validate
+    // If invalid, return 400 - Bad Request
+    const { error } = validateCat(req.body);
+
+    // first detail's message will have our error in it
+    if (error) return res.status(400).send(
+        error.details[0].message
+    );
+
+    // Update cat
+    cat.name = req.body.name;
+    // return the updated cat
+    res.send(cat);
+});
+
+app.delete('/api/cats/:id', (req, res) => {
+    // Look up cat
+    // if not exist, return 404
+    const cat = cats.find(c => c.id === parseInt(req.params.id));
+    if (!cat) return res.status(404).send(
+        `The cat at ID ${req.params.id} was not found`
+    );
+
+    // delete
+    const index = cats.indexOf(cat);
+    cats.splice(index, 1);
+
+    // return the same course
+    res.send(cat); 
+})
+
+// validates that name is string with >= 3 chars
+const validateCat = (cat) => {
+    return Joi.validate(cat, { name: Joi.string().min(3).required() });
+};
 
 /*
 To activate the server we call the 'listen' method
